@@ -1,0 +1,19 @@
+[project]
+name = "Call_me_maby"
+version = "0.1.0"
+description = "A project about LLM"
+requires-python = ">=3.12"
+dependencies = [
+    "flake8>=7.3.0",
+    "mypy==2.1.0",
+    "torch==2.12.0",
+    "pydantic==2.13.4",
+    "transformers==5.8.1"
+]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
