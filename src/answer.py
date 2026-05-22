@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 
 from llm_sdk.llm_sdk import Small_LLM_Model
@@ -16,27 +18,44 @@ class Answer:
             self.function
         )
 
-    def find_function(self, prompt):
-        generated_prompt = ""
+    def find_function(self, prompt, functions: List[str]):
         input_ids = self.llm.encode(prompt).tolist()[0]
-        for _ in range(20):
+        generated_prompt = ""
+
+        while True:
+            if generated_prompt in functions:
+                break
+            allowed_next_tokens = []
+            for function in functions:
+                if function.startswith(generated_prompt):
+                    remaining_text = function[len(generated_prompt):]
+                    if remaining_text:
+                        tokens = self.llm.encode(remaining_text).tolist()[0]
+                        if tokens:
+                            allowed_next_tokens.append(tokens[0])
+
+            if not allowed_next_tokens:
+                break
+
             logit_data = self.llm.get_logits_from_input_ids(input_ids)
             logits_tensor = torch.tensor(logit_data)
 
-            if logits_tensor.ndim == 1:
-                next_token_id = torch.argmax(logits_tensor, dim=-1).item()
-            else:
-                next_token_id = torch.argmax(logits_tensor[-1, :],
-                                             dim=-1).item()
+            mask = torch.full(logits_tensor.shape, float('-inf'))
+            mask[allowed_next_tokens] = 0.0
+
+            constrained_logits = logits_tensor + mask
+            next_token_id = torch.argmax(constrained_logits, dim=-1).item()
 
             input_ids.append(next_token_id)
             decoded = self.llm.decode([next_token_id])
             generated_prompt += decoded
+
         return generated_prompt
 
     def generate_answer(self):
         function_description = self.get_function_description()
         result = []
+        functions = [d.name for d in self.function]
         for line in self.prompt:
             prompt_all = (
                 f"Available functions:\n{function_description}\n\n"
@@ -44,7 +63,7 @@ class Answer:
                 f" {line.prompt}\n"
                 f"Answer:"
             )
-            function = self.find_function(prompt_all)
+            function = self.find_function(prompt_all, functions)
             result.append(
                 {
                     "prompt": line.prompt,

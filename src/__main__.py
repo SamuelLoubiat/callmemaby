@@ -25,4 +25,3 @@ if __name__ == "__main__":
     answer = Answer(function, prompt, output_path)
     output.write(json.dumps(answer.generate_answer(), indent=2))
     output.close()
-    #print(answer.generate_answer())
