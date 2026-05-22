@@ -7,13 +7,14 @@ from src.data import Function, Prompt
 
 class Parser:
     def __init__(self) -> None:
+        default_definition = 'data/input/functions_definition.json'
+        default_input = 'data/input/function_calling_tests.json'
+        default_output = 'data/output/function_calling_results.json'
         self.parser = ArgumentParser(prog='callmemaby')
         self.parser.add_argument('--functions_definition',
-                                 default='data/input/functions_definition.json')
-        self.parser.add_argument('--input',
-                                 default='data/input/function_calling_tests.json')
-        self.parser.add_argument('--output',
-                                 default='data/output/function_calling_results.json')
+                                 default=default_definition)
+        self.parser.add_argument('--input', default=default_input)
+        self.parser.add_argument('--output', default=default_output)
         self.args = self.parser.parse_args()
 
     def get_output(self) -> str:
