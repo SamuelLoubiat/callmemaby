@@ -11,7 +11,7 @@ run: install
 	$(PYTHON) -m src
 
 debug:
-	$(PYTHON) -m pdb src
+	$(PYTHON) -m pdb src/__main__.py
 
 clean:
 	rm -rf .venv

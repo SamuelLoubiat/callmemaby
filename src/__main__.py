@@ -1,11 +1,8 @@
 import json
 import os
 
-from llm_sdk.llm_sdk import Small_LLM_Model
 from src.answer import Answer
 from src.parser import Parser
-
-llm = Small_LLM_Model()
 
 if __name__ == "__main__":
     parser = Parser()
