@@ -9,8 +9,34 @@ from src import Function, Prompt
 
 
 class Answer:
+    """Handles function selection and parameter extraction using a localized
+    language model.
+
+    This class processes user prompts by matching them against available
+    predefined functions and dynamically extracting the corresponding
+    parameters
+    using rule-based parsing and LLM token constraints.
+
+    Attributes:
+        function (List[Function]): A list of available functional tools to
+        match against.
+        prompt (List[Prompt]): A list of input query data structure blocks.
+        output (str): Destination path or configuration string for output
+        tracking.
+        llm (Small_LLM_Model): An instance of the underlying small language
+        model.
+        vocab (Dict[str, Any]): The vocabulary mapping tokens to IDs loaded
+        from the model.
+        id_to_token (Dict[int, str]): Reverse lookup dictionary mapping token
+        IDs to string values.
+        path_vocab (str): System file path to the vocabulary configuration
+        json.
+    """
+
     def __init__(self, function: List[Function], prompt: List[Prompt],
                  output: str) -> None:
+        """Initializes the Answer instance with functions, prompts, and output
+        references."""
         self.function = function
         self.prompt = prompt
         self.output = output
@@ -18,18 +44,39 @@ class Answer:
         self.vocab: Dict[str, Any] = {}
 
     def get_vocab(self) -> None:
+        """Loads the vocabulary map from the local language model.
+
+        Populates the `vocab` and `id_to_token` attributes by loading the JSON
+        schema provided by the underlying SDK path configuration.
+        """
         self.path_vocab = self.llm.get_path_to_vocab_file()
         with open(self.path_vocab, 'r') as fd:
             self.vocab = json.load(fd)
         self.id_to_token = {v: k for k, v in self.vocab.items()}
 
     def get_function_description(self) -> str:
+        """Generates a structured string breakdown of all available tools.
+
+        Returns:
+            str: A newline-separated markdown string tracking function names
+                and descriptions.
+        """
         return "\n".join(
             f"- {d.name}: {d.description}" for d in
             self.function
         )
 
     def _fix_regex(self, value: str) -> str:
+        """Balances trailing brackets and parentheses inside an isolated regex
+        string.
+
+        Args:
+            value (str): The raw regex sequence parsed from the model.
+
+        Returns:
+            str: The sanitized regex pattern ensuring basic closing character
+            parity.
+        """
         if value.count('[') > value.count(']'):
             value += ']'
         if value.count('(') > value.count(')'):
@@ -38,6 +85,19 @@ class Answer:
 
     def _extract_parameters(self, prompt: str, param_name: str,
                             context: str) -> str:
+        """Uses a few-shot generative sequence to isolate target parameters.
+
+        Args:
+            prompt (str): The baseline query requested by the user.
+            param_name (str): Key value descriptor (e.g., 'regex' or '
+            replacement').
+            context (str): System state history tracks containing previously
+            evaluated flags.
+
+        Returns:
+            str: A stripped literal text output indicating the identified
+            parameters.
+        """
         end_tokens = set()
         for token_str, token_id in self.vocab.items():
             if 'Ċ' in token_str or '\n' in token_str:
@@ -87,6 +147,18 @@ class Answer:
         return result
 
     def _find_parameters(self, prompt: str, chosen_function: Function) -> dict:
+        """Parses arguments out of raw prompts matching targeted function
+        schemas.
+
+        Args:
+            prompt (str): The raw instruction snippet containing entity tokens.
+            chosen_function (Function): Meta-object validation profile mapping
+            parameters.
+
+        Returns:
+            dict: Key-value bindings maps for positional tracking inside
+            applications.
+        """
         if chosen_function.name == "fn_substitute_string_with_regex":
             strings = [m[0] or m[1] for m in
                        re.findall(r"'([^']*)'|\"([^\"]*)\"", prompt)]
@@ -129,6 +201,17 @@ class Answer:
 
     def _find_function(self, prompt: str, functions: Dict[str, Function]) \
             -> str:
+        """Finds valid matching tool tokens using constrained prefix logit
+        masking.
+
+        Args:
+            prompt (str): Full target formatted contextual string schema.
+            functions (Dict[str, Function]): Valid execution paths currently
+            supported.
+
+        Returns:
+            str: The specific validated name key for an entity object tool.
+        """
         input_ids = self.llm.encode(prompt).tolist()[0]
         generated_prompt = ""
 
@@ -164,6 +247,13 @@ class Answer:
         return generated_prompt
 
     def generate_answer(self) -> List:
+        """Executes full pipeline resolution over the tracked array lists of
+        prompts.
+
+        Returns:
+            List[Dict[str, Any]]: Array mapping prompts to their verified
+                function structures and parameter variables.
+        """
         function_description = self.get_function_description()
         result = []
         functions = {d.name: d for d in self.function}
