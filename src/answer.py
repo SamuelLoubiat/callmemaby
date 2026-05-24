@@ -1,15 +1,16 @@
 import json
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import torch
 
 from llm_sdk.llm_sdk import Small_LLM_Model
-from src import Function
+from src import Function, Prompt
 
 
 class Answer:
-    def __init__(self, function, prompt, output) -> None:
+    def __init__(self, function: List[Function], prompt: List[Prompt],
+                 output: str) -> None:
         self.function = function
         self.prompt = prompt
         self.output = output
@@ -36,36 +37,46 @@ class Answer:
         return value
 
     def _extract_parameters(self, prompt: str, param_name: str,
-                          context: str) -> str:
-        newline_id = self.llm.encode('\n').tolist()[0][0]
-        double_newline_id = self.llm.encode('\n\n').tolist()[0][0]
-        end_tokens = {newline_id, double_newline_id}
+                            context: str) -> str:
+        end_tokens = set()
         for token_str, token_id in self.vocab.items():
             if 'Ċ' in token_str or '\n' in token_str:
                 end_tokens.add(token_id)
         full_prompt_arg = (
-            f"Examples:\n"
-            f"Task: Replace all numbers in 'Hello 42' with NUMBERS\n"
-            f"source_string: Hello 42\n"
-            f"regex: '\\d+'\n"
-            f"replacement: 'NUMBERS'\n\n"
-            f"Task: Replace vowels in 'hello' with *\n"
-            f"source_string: hello\n"
-            f"regex: '[aeiouAEIOU]'\n"
-            f"replacement: *\n\n"
-            f"Task: Replace 'cat' with 'dog' in 'the cat sat'\n"
-            f"source_string: the cat sat\n"
-            f"regex: \\bcat\\b\n"
-            f"replacement: 'dog'\n\n"
+            "Instruction: You are a strict few-shot string transformer."
+            " Analyze the examples to understand "
+            "the pattern, then complete the Last Task. Output ONLY the raw"
+            " value for the requested parameter. "
+            "Do not add quotes, do not explain, do not alter the examples.\n\n"
+
+            "[EXAMPLE 1]\n"
+            "Task: Replace all numbers in \"Hello 34\" with NUMBERS\n"
+            "source_string: Hello 34 \n"
+            "regex: \\d+ \n"
+            "replacement: NUMBERS \n\n"
+
+            "[EXAMPLE 2]\n"
+            "Task: Replace all vowels in 'hello' with asterisks\n"
+            "source_string: hello \n"
+            "regex: [aeiouAEIOU] \n"
+            "replacement: * \n\n"
+
+            "[EXAMPLE 3] \n"
+            "Task: Replace 'cat' with 'dog' in 'the cat sat'\n"
+            "source_string: the cat sat \n"
+            "regex: \\bcat\\b \n"
+            "replacement: dog \n\n"
+
+            "[LAST TASK]\n"
             f"Task: {prompt}\n"
-            f"{context}"
+            f"{context.strip()}\n"
             f"{param_name}: "
         )
         arg_generated = []
         for _ in range(30):
             test = self.llm.encode(full_prompt_arg).tolist()[0]
             logits = self.llm.get_logits_from_input_ids(test)
-            max_logits = logits.index(max(logits))
+            max_logits: Any = logits.index(max(logits))
             if max_logits in end_tokens:
                 break
             arg_generated.append(max_logits)
@@ -75,7 +86,7 @@ class Answer:
             result = self._fix_regex(result)
         return result
 
-    def _find_parameters(self, prompt, chosen_function):
+    def _find_parameters(self, prompt: str, chosen_function: Function) -> dict:
         if chosen_function.name == "fn_substitute_string_with_regex":
             strings = [m[0] or m[1] for m in
                        re.findall(r"'([^']*)'|\"([^\"]*)\"", prompt)]
@@ -98,7 +109,10 @@ class Answer:
             p_type = getattr(p_info, "type", "string")
             if p_type == "number" or p_type == "integer" or p_type == "float":
                 if num_idx < len(numbers):
-                    params[p_name] = float(numbers[num_idx])
+                    if p_type == "integer":
+                        params[p_name] = int(numbers[num_idx])
+                    else:
+                        params[p_name] = float(numbers[num_idx])
                     num_idx += 1
                 else:
                     params[p_name] = getattr(p_info, "default", 0.0)
@@ -113,7 +127,8 @@ class Answer:
                 params[p_name] = prompt.strip().split()[-1].strip("?!.")
         return params
 
-    def _find_function(self, prompt, functions: Dict[str, Function]):
+    def _find_function(self, prompt: str, functions: Dict[str, Function]) \
+            -> str:
         input_ids = self.llm.encode(prompt).tolist()[0]
         generated_prompt = ""
 
@@ -139,15 +154,16 @@ class Answer:
             mask[allowed_next_tokens] = 0.0
 
             constrained_logits = logits_tensor + mask
-            next_token_id = torch.argmax(constrained_logits, dim=-1).item()
+            next_token_id: Any = (torch.argmax(constrained_logits, dim=-1)
+                                  .item())
 
             input_ids.append(next_token_id)
-            decoded = self.llm.decode([next_token_id])
+            decoded = self.llm.decode(next_token_id)
             generated_prompt += decoded
 
         return generated_prompt
 
-    def generate_answer(self):
+    def generate_answer(self) -> List:
         function_description = self.get_function_description()
         result = []
         functions = {d.name: d for d in self.function}
