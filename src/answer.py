@@ -2,8 +2,6 @@ import json
 import re
 from typing import Dict, Any, List
 
-import torch
-
 from llm_sdk.llm_sdk import Small_LLM_Model
 from src import Function, Prompt
 
@@ -231,14 +229,8 @@ class Answer:
                 break
 
             logit_data = self.llm.get_logits_from_input_ids(input_ids)
-            logits_tensor = torch.tensor(logit_data)
-
-            mask = torch.full(logits_tensor.shape, float('-inf'))
-            mask[allowed_next_tokens] = 0.0
-
-            constrained_logits = logits_tensor + mask
-            next_token_id: Any = (torch.argmax(constrained_logits, dim=-1)
-                                  .item())
+            next_token_id = max(allowed_next_tokens,
+                                key=lambda token_id: logit_data[token_id])
 
             input_ids.append(next_token_id)
             decoded = self.llm.decode(next_token_id)

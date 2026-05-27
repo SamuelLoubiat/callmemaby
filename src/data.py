@@ -1,6 +1,6 @@
 from typing import Dict
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Prompt(BaseModel):
@@ -11,7 +11,7 @@ class Prompt(BaseModel):
         targets.
     """
     model_config = ConfigDict(extra="forbid")
-    prompt: str
+    prompt: str = Field(min_length=1)
 
 
 class Type(BaseModel):
@@ -25,7 +25,7 @@ class Type(BaseModel):
         'integer', 'float').
     """
     model_config = ConfigDict(extra="forbid")
-    type: str
+    type: str = Field(min_length=1)
 
 
 class Function(BaseModel):
@@ -44,7 +44,16 @@ class Function(BaseModel):
         schema.
     """
     model_config = ConfigDict(extra="forbid")
-    name: str
-    description: str
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
     parameters: Dict[str, Type]
     returns: Type
+
+    @field_validator('parameters')
+    @classmethod
+    def verifier_cles(cls, v: Dict[str, str]) -> Dict[str, str]:
+        for cle in v.keys():
+            if not cle.strip():
+                raise ValueError(
+                    f"Empty key detected in parameters for function {cls.name}.")
+        return v
