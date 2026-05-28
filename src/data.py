@@ -70,7 +70,6 @@ class Function(BaseModel):
                         Dict[str, str]: The validated parameters dictionary.
                     """
         func_name = info.data.get('name', 'Unknown')
-        print(v.keys())
         for key in v.keys():
             if not key.strip():
                 raise ValueError(
