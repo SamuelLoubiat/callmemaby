@@ -1,6 +1,7 @@
 from typing import Dict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 
 class Prompt(BaseModel):
@@ -51,9 +52,28 @@ class Function(BaseModel):
 
     @field_validator('parameters')
     @classmethod
-    def verifier_cles(cls, v: Dict[str, str]) -> Dict[str, str]:
-        for cle in v.keys():
-            if not cle.strip():
+    def check_keys(cls, v: Dict[str, str], info: ValidationInfo) \
+            -> Dict[str, str]:
+        """Validates that no keys in the parameters dictionary are empty or
+        consist only of whitespace.
+
+                    Args:
+                        v (Dict[str, str]): The parameters dictionary to
+                        validate.
+                        info (ValidationInfo): ValidationInfo object.
+
+                    Raises:
+                        ValueError: If a key is found to be empty or contains
+                        only whitespace.
+
+                    Returns:
+                        Dict[str, str]: The validated parameters dictionary.
+                    """
+        func_name = info.data.get('name', 'Unknown')
+        print(v.keys())
+        for key in v.keys():
+            if not key.strip():
                 raise ValueError(
-                    f"Empty key detected in parameters for function {cls.name}.")
+                    f"Empty key detected in parameters for function"
+                    f" {func_name}.")
         return v

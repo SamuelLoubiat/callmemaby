@@ -199,8 +199,8 @@ class Answer:
 
     def _find_function(self, prompt: str, functions: Dict[str, Function]) \
             -> str:
-        """Finds valid matching tool tokens using constrained prefix logit
-        masking.
+        """Finds a valid matching tool function name by greedily selecting
+        the next token with the highest logit from the allowed prefixes.
 
         Args:
             prompt (str): Full target formatted contextual string schema.

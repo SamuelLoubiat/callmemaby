@@ -11,16 +11,16 @@ def get_arguments() -> tuple:
         function_list = parser.get_functions()
         if len(function_list) == 0:
             raise Exception("Function not found")
-    except Exception as e:
-        print(e)
+    except Exception as func_e:
+        print(func_e)
         exit(1)
 
     try:
         prompt_list = parser.get_prompt()
         if len(prompt_list) == 0:
             raise Exception("Prompt not found")
-    except Exception as e:
-        print(e)
+    except Exception as promp_e:
+        print(promp_e)
         exit(1)
 
     return function_list, prompt_list, parser.get_output()

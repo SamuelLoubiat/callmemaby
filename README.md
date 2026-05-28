@@ -15,7 +15,7 @@ call me maybe is a function calling tool that translates natural language prompt
 
 The core challenge is reliability. Small language models generate valid JSON only ~30% of the time when prompted naively. This project achieves 100% valid JSON output and 90%+ function selection accuracy using constrained decoding — a technique that guides token-by-token generation to guarantee structural and schema compliance, without relying on prompting alone.
 
-The model used is Qwen3-0.6B via a custom llm_sdk wrapper.
+The model used is Qwen3-0.6B with a custom llm_sdk wrapper.
 
 ---
 
@@ -54,12 +54,12 @@ uv run python -m src \
 
 ### Makefile targets
 
-| Target | Description |
-|--------|-------------|
-| `make install` | Install project dependencies via `uv` |
-| `make run` | Run the main program |
-| `make debug` | Run in debug mode with `pdb` |
-| `make clean` | Remove `__pycache__`, `.mypy_cache`, etc. |
+| Target | Description                                 |
+|--------|---------------------------------------------|
+| `make install` | Install project dependencies with `uv`      |
+| `make run` | Run the main program                        |
+| `make debug` | Run in debug mode with `pdb`                |
+| `make clean` | Remove `__pycache__`, `.mypy_cache`, etc.   |
 | `make lint` | Run `flake8` and `mypy` with required flags |
 
 ---
@@ -73,9 +73,9 @@ Language models generate text one token at a time. At each step, the model outpu
 Constrained decoding intercepts this process:
 
 1. **The model produces logits** over its full vocabulary.
-2. **A constraint engine** determines which tokens are valid at the current generation state (based on JSON structure and the expected schema).
-3. **Invalid token logits are set to `-inf`** (negative infinity), effectively removing them from consideration.
-4. **The next token is sampled** only from the remaining valid set.
+2. **The constraint engine pre-computes an allowed set:** The valid identifiers (such as exact function names) are encoded into a set containing only the specifically authorized token IDs for that structural generation step.
+3. **Python's `max()` extraction:** The algorithm evaluates the model's logit outputs exclusively against this authorized set. By leveraging Python's `max()` function, it extracts the highest-scoring token only from the collection of valid tokens.
+4. **The next token is appended** and the process advances safely, entirely bypassing the risk of sampling an unauthorized or broken string.
 
 This loop repeats until the full JSON object is generated. Every token produced is guaranteed to be valid — both syntactically (well-formed JSON) and semantically (matches the function schema).
 
